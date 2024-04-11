@@ -1,113 +1,364 @@
-import Image from "next/image";
+"use client"
+
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+
+import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+interface IMeal {
+  name?: string,
+  url?: string
+}
+
+interface Idata {
+  name: string,
+  url: string
+}
+
+import { ModeToggle } from "@/components/common/dark";
+import { Shuffle } from "lucide-react";
+import { use, useEffect, useState } from "react"
+import Image from "next/image"
+import { Item } from "@radix-ui/react-select"
 
 export default function Home() {
+  const [showData, setShowData] = useState<Array<IMeal>>([{}]);
+  const [category, setCategory] = useState<string[]>([]);
+  const [area, setArea] = useState<string[]>([]);
+  const [ing, setIng] = useState<string[]>([]);
+  const [show, setShow] = useState<boolean>(false);
+
+  function findIntersection(arr1: Array<Idata>, arr2: Array<Idata>, arr3: Array<Idata>) {
+    const nonEmptyArrays = [arr1, arr2, arr3].filter(arr => arr.length > 0);
+
+    if (nonEmptyArrays.length === 0) {
+        return [];
+    }
+
+    const intersection = [];
+
+    const [firstArray, ...restArrays] = nonEmptyArrays;
+
+    for (const item of firstArray) {
+        const { name, url } = item;
+        const isPresentInRestArrays = restArrays.every(arr => arr.some(({ name: n, url: u }) => name === n && url === u));
+        if (isPresentInRestArrays) {
+            intersection.push({ name, url });
+        }
+    }
+
+    return intersection;
+  }
+
+  async function load() {
+    const data = await fetch(`https://www.themealdb.com/api/json/v1/1/random.php`);
+    const json = await data.json();
+    setShowData([{ name: json.meals[0].strMeal, url: json.meals[0].strMealThumb }]);
+    // console.log(json.meals[0].strMeal);
+    // console.log(json.meals[0].strMealThumb);
+  }
+  useEffect(() => {
+    load();
+    async function reboot(){
+      const cdata = await fetch(`https://www.themealdb.com/api/json/v1/1/list.php?c=list`);
+      const cres = await cdata.json();
+      const carr = cres?.meals;
+      // console.log(carr);
+      let arr = [];
+      for (let item of carr)
+        arr.push(item?.strCategory);
+      setCategory(arr);
+
+      const adata = await fetch(`https://www.themealdb.com/api/json/v1/1/list.php?a=list`);
+      const ares = await adata.json();
+      const aarr = ares?.meals;
+      // console.log(aarr);
+      arr = [];
+      for (let item of aarr)
+        arr.push(item?.strArea);
+      setArea(arr);
+      // console.log(arr);
+
+      const idata = await fetch(`https://www.themealdb.com/api/json/v1/1/list.php?i=list`);
+      const ires = await idata.json();
+      const iarr = ires?.meals;
+      arr = [];
+      for (let item of iarr)
+        arr.push(item?.strIngredient);
+      setIng(arr);
+    }
+    reboot();
+    // console.log(arr);
+  }, []);
+
+
+
+
+  const FormSchema = z.object({
+    category: z.optional(z.string()),
+    ingredient: z.optional(z.string()),
+    area: z.optional(z.string())
+  })
+
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+  })
+
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    setShow(false);
+
+    let cat = data.category;
+    let ing = data.ingredient;
+    let area = data.area;
+
+    let catArr = [];
+    let ingArr = [];
+    let areaArr = [];
+
+    if (cat !== undefined) {
+      let dat = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?c=${cat}`);
+      let res = await dat.json();
+      let resArr = res.meals;
+      for (let item of resArr) {
+        let obj: { name: string, url: string } = {
+          name: "",
+          url: ""
+        };
+        Object.assign(obj, { name: item.strMeal, url: item.strMealThumb })
+        obj.name = item?.strMeal;
+        obj.url = item?.strMealThumb;
+        catArr.push(obj);
+      }
+    }
+
+    if (ing !== undefined) {
+      let dat = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${ing}`);
+      let res = await dat.json();
+      let resArr = res.meals;
+      for (let item of resArr) {
+        let obj: { name: string, url: string } = {
+          name: "",
+          url: ""
+        };
+        Object.assign(obj, { name: item.strMeal, url: item.strMealThumb })
+        obj.name = item?.strMeal;
+        obj.url = item?.strMealThumb;
+        ingArr.push(obj);
+      }
+    }
+
+    if (area !== undefined) {
+      let dat = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?a=${area}`);
+      let res = await dat.json();
+      let resArr = res.meals;
+      for (let item of resArr) {
+        let obj: { name: string, url: string } = {
+          name: "",
+          url: ""
+        };
+        Object.assign(obj, { name: item.strMeal, url: item.strMealThumb })
+        obj.name = item?.strMeal;
+        obj.url = item?.strMealThumb;
+        areaArr.push(obj);
+      }
+    }
+
+    const ans = findIntersection(catArr, ingArr, areaArr);
+
+    // console.log(catArr);
+    // console.log(ingArr);
+    // console.log(areaArr);
+    // console.log(ans);
+    setShowData(ans);
+    setShow(true);
+  }
+
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="ml-24 mt-3 w-10/12">
+
+      <div className="flex justify-between">
+
+        <div className="mb-4 text-4xl font-extrabold leading-none tracking-tight bg-gradient-to-r from-blue-600 via-green-500 to-indigo-400 inline-block text-transparent bg-clip-text">
+          Serve
+        </div>
+
+        <ModeToggle />
+
+      </div>
+
+      <div className="ml-32 mt-16">
+        <div className="mb-4 text-6xl font-extrabold leading-none tracking-tight">
+          Foodie? We&apos;ve Got Your Feast.
+        </div>
+        <div className="mb-6 text-xl font-normal text-gray-500">
+          Because &apos;What Should I Eat?&apos; Shouldn&apos;t Be a Question.
+          Uncover Hidden Gems &amp; Culinary Delights.
         </div>
       </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
+
+      <div className="grid justify-items-stretch">
+
+        <div className="grid grid-flow-col justify-stretch">
+          <div>
+            <div className="flex justify-between">
+              <div className="text-xl font-bold leading-none tracking-tight text-slate-500 mr-96">Something Special</div>
+              <Shuffle onClick={() => load()} className='w-12 h-12 rounded-full p-2 cursor-pointer mr-4 hover:bg-slate-700 transition ease-in-out duration-200' size={28} strokeWidth={2.25} />
+            </div>
+            {showData[0].name && <div className="text-2xl text-foreground">{showData[0].name}</div>}
+            {showData[0].url &&
+              <Image
+                src={showData[0].url}
+                alt="Picture of the food"
+                width={500}
+                height={500}
+              />}
+        </div>
+
+        <div className="basis-1/2 ml-6 w-max">
+          <div className="text-3xl font-extrabold leading-none tracking-tight mb-2">Your&apos;s Choice</div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+
+              <>
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categories</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select from various categories to display" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {category &&
+                            category.map((cati, index) => (
+                              <SelectItem key={index} value={cati}>
+                                {cati}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="area"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Area</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select from various Areas to display" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {area &&
+                            area.map((cati, index) => (
+                              <SelectItem key={index} value={cati}>
+                                {cati}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="ingredient"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ingredient</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select from various Ingredients to display" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ing &&
+                            ing.map((cati, index) => (
+                              <SelectItem key={index} value={cati}>
+                                {cati}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+
+              </>
+
+              <FormDescription>
+                You can leave field empty if you don&apos;t want to filter by that field or getting less response.
+              </FormDescription>
+
+              <Button type="submit">Submit</Button>
+            </form>
+          </Form>
+        </div>
+
       </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+    </div>
+    {show && 
+      <div className="grid grid-cols-3 gap-2">
+          {showData.map((item, index)=>(
+          <div key={index}>
+            <div className="text-2xl font-extrabold leading-none tracking-tight">{item?.name}</div>
+            <div className="rounded-xl overflow-hidden m-3">
+            {item.url && <Image
+                src={item.url}
+                alt="Picture of the food"
+                width={500}
+                height={500}
+              />}
+            </div>
+          </div>))}
       </div>
-    </main>
-  );
+      
+    }
+    </div>
+
+  )
 }
